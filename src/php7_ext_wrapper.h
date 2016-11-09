@@ -5,6 +5,7 @@
 #ifndef _PHP7_EXT_WRAPPER_H
 #define _PHP7_EXT_WRAPPER_H
 
+#include <stdbool.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -106,7 +107,7 @@ static inline int zend_get_configuration_directive_wrapper(char *name, int len,
 	return zend_get_configuration_directive(name, len, *value);
 }
 
-#else
+#else   //php 7
 
 typedef size_t zend_size_t;
 #define ZEND_RETURN_STRING(s, dup) RETURN_STRING(s)
@@ -171,9 +172,7 @@ typedef size_t zend_size_t;
 static inline int zend_hash_find_wrapper(HashTable *ht, char *key, int key_len,
         zval **value)
 {
-	zval zkey;
-	ZVAL_STRINGL(&zkey, key, key_len - 1);
-	*value = zend_hash_find(ht, Z_STR(zkey));
+	*value = zend_hash_str_find(ht, key, key_len - 1);
 	return (*value != NULL ? SUCCESS : FAILURE);
 }
 
@@ -187,9 +186,7 @@ static inline int zend_hash_index_find_wrapper(HashTable *ht, int index,
 static inline int zend_hash_update_wrapper(HashTable *ht, char *k, int len,
         zval **val, int size, void *ptr)
 {
-	zval key;
-	ZVAL_STRINGL(&key, k, len - 1);
-	return zend_hash_update(ht, Z_STR(key), *val) ? SUCCESS : FAILURE;
+	return zend_hash_str_update(ht, k, len - 1, *val) ? SUCCESS : FAILURE;
 }
 
 static inline int zend_call_user_function_wrapper(HashTable *function_table,
@@ -215,9 +212,12 @@ static inline int zend_call_user_function_wrapper(HashTable *function_table,
 static inline int zend_get_configuration_directive_wrapper(char *name, int len,
         zval **value)
 {
-	zval key;
-	ZVAL_STRINGL(&key, name, len - 1);
-	*value = zend_get_configuration_directive(Z_STR(key));
+	zend_string *key;
+    bool use_heap;
+
+    ZSTR_ALLOCA_INIT(key, name, len - 1, use_heap);
+	*value = zend_get_configuration_directive(key);
+    ZSTR_ALLOCA_FREE(key, use_heap);
 	return (*value != NULL ? SUCCESS : FAILURE);
 }
 

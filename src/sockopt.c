@@ -339,13 +339,13 @@ int tcprecvdata_nb_ms(int sock, void *data, const int size, \
 		}
 
 #ifdef USE_SELECT
-		if (timeout <= 0)
+		if (timeout_ms <= 0)
 		{
 			res = select(sock+1, &read_set, NULL, NULL, NULL);
 		}
 		else
 		{
-			t.tv_usec = timeout_ms * 1000;
+			t.tv_usec = (timeout_ms % 1000) * 1000;
 			t.tv_sec = timeout_ms / 1000;
 			res = select(sock+1, &read_set, NULL, NULL, &t);
 		}
@@ -871,6 +871,16 @@ int socketBind(int sock, const char *bind_ipaddr, const int port)
 	return 0;
 }
 
+#ifdef SO_NOSIGPIPE
+#define SET_SOCKOPT_NOSIGPIPE(sock) \
+    do { \
+    int set = 1;  \
+    setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &set, sizeof(int)); \
+    } while (0)
+#else
+#define SET_SOCKOPT_NOSIGPIPE(sock)
+#endif
+
 int socketServer(const char *bind_ipaddr, const int port, int *err_no)
 {
 	int sock;
@@ -885,6 +895,8 @@ int socketServer(const char *bind_ipaddr, const int port, int *err_no)
 			__LINE__, errno, STRERROR(errno));
 		return -1;
 	}
+
+    SET_SOCKOPT_NOSIGPIPE(sock);
 
 	result = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &result, sizeof(int))<0)
@@ -1427,6 +1439,8 @@ int tcpsetserveropt(int fd, const int timeout)
 
 	struct linger linger;
 	struct timeval waittime;
+
+    SET_SOCKOPT_NOSIGPIPE(fd);
 
 /*
 	linger.l_onoff = 1;
